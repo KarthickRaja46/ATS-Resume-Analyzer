@@ -13,6 +13,9 @@
 
 Production-ready full-stack application to analyze resumes for ATS compatibility, score them against Data Analyst role profiles, and generate rewrite suggestions.
 
+### 🟢 Live Demo
+**Play with the live application here:** [https://ats-resume-analyzer-i3kr.onrender.com](https://ats-resume-analyzer-i3kr.onrender.com)
+
 ## 🚀 One-Command Local Run
 
 Make sure you have Node \>= 18 installed, and your `.env.local` is set up. Then simply run:
