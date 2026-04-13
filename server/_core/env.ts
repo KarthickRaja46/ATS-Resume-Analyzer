@@ -11,8 +11,7 @@ export const ENV = {
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
   devAuthBypass:
-    process.env.NODE_ENV !== "production" &&
-    process.env.DEV_BYPASS_AUTH !== "false",
+    process.env.DEV_BYPASS_AUTH === "true",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
 };
