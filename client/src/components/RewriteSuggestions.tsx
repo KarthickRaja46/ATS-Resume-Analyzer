@@ -81,10 +81,10 @@ export default function RewriteSuggestions({
     generateMutation.data?.bulletSuggestions.length === 0;
 
   return (
-    <Card className="p-8 border border-slate-200">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Lightbulb className="w-6 h-6 text-yellow-500" />
+    <Card className="p-4 sm:p-8 border border-slate-200">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <Lightbulb className="w-6 h-6 text-yellow-500 flex-shrink-0" />
           AI-Powered Rewrite Suggestions
         </h2>
         <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full">

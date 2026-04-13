@@ -13,9 +13,6 @@
 
 Production-ready full-stack application to analyze resumes for ATS compatibility, score them against Data Analyst role profiles, and generate rewrite suggestions.
 
-### 🟢 Live Demo
-**Play with the live application here:** [https://ats-resume-analyzer-i3kr.onrender.com](https://ats-resume-analyzer-i3kr.onrender.com)
-
 ## 🚀 One-Command Local Run
 
 Make sure you have Node \>= 18 installed, and your `.env.local` is set up. Then simply run:
@@ -31,7 +28,6 @@ npx pnpm install && npx pnpm run dev
 | <img src="docs/assets/upload.png" alt="Upload Interface" width="400"/> | <img src="docs/assets/analysis.png" alt="Analysis Results" width="400"/> |
 | *Intuitive resume upload and ATS parsing* | *Comprehensive ATS scoring and keyword tracking* |
 
-> **Note**: Add your UI screenshots as `upload.png` and `analysis.png` into a `docs/assets/` directory to display them here.
 
 ## Overview
 

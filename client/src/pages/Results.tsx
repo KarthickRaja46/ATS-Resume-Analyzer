@@ -193,33 +193,33 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
             <Button
               variant="ghost"
               onClick={() => setLocation("/dashboard")}
-              className="mb-4"
+              className="mb-4 -ml-2"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
-            <h1 className="text-4xl font-bold text-slate-900">Your ATS Analysis Report</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Your ATS Analysis Report</h1>
             <p className="text-slate-600 mt-2">
               Generated on {new Date().toLocaleDateString()}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full md:w-auto mt-4 md:mt-0">
             <Button
               variant="outline"
               onClick={handleDownload}
-              className="gap-2"
+              className="w-full sm:w-auto gap-2"
             >
               <Download className="w-4 h-4" />
               Download
             </Button>
             <Button
               onClick={handleShare}
-              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white gap-2 border border-blue-600"
             >
               <Share2 className="w-4 h-4" />
               Share
@@ -348,7 +348,7 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
           <div className="space-y-4">
             {analysis.recommendations.map((rec: any, i: number) => (
               <div key={i} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex items-start gap-3">
+                <div className="flex flex-col sm:flex-row items-start gap-3">
                   <div className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${
                     rec.category === "keyword_optimization" ? "bg-blue-600" :
                     rec.category === "formatting" ? "bg-purple-600" :
@@ -386,7 +386,7 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
         <div className="mt-12 text-center">
           <Button
             size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => setLocation("/upload")}
           >
             Analyze Another Resume

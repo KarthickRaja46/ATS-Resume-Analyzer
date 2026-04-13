@@ -156,8 +156,8 @@ export default function Upload() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">Upload Your Resume</h1>
-          <p className="text-lg text-slate-600">
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">Upload Your Resume</h1>
+          <p className="text-base sm:text-lg text-slate-600">
             Upload your PDF resume to get instant ATS scoring and optimization recommendations
           </p>
         </div>
@@ -218,10 +218,10 @@ export default function Upload() {
           )}
 
           {/* Analyze Button */}
-          <div className="mt-8 flex gap-4">
+          <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <Button
               size="lg"
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleAnalyze}
               disabled={!selectedFile || isAnalyzing}
             >
@@ -237,6 +237,7 @@ export default function Upload() {
             <Button
               size="lg"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setLocation("/")}
               disabled={isAnalyzing}
             >

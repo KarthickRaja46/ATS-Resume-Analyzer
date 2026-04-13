@@ -40,14 +40,14 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-12">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900">Your Dashboard</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Your Dashboard</h1>
             <p className="text-slate-600 mt-2">View and manage your resume analyses</p>
           </div>
           <Button
             size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white gap-2"
             onClick={() => setLocation("/upload")}
           >
             <Plus className="w-5 h-5" />
@@ -124,7 +124,7 @@ export default function Dashboard() {
                   className="p-6 hover:bg-slate-50 transition-colors cursor-pointer"
                   onClick={() => setLocation(`/results/${resume.id}`)}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
                       <FileText className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
                       <div className="flex-1">
@@ -137,6 +137,7 @@ export default function Dashboard() {
                     </div>
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto mt-2 sm:mt-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         setLocation(`/results/${resume.id}`);
