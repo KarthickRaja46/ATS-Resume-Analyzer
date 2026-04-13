@@ -72,50 +72,32 @@ Detailed architecture docs:
 6. Results page loads data by `resumeId`.
 7. Suggestion generation writes records to `rewriteSuggestions`.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS + shadcn/ui
-- Wouter
-- TanStack Query + tRPC Client
+| Category | Technologies |
+|:---|:---|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Wouter, tRPC Client, React Query |
+| **Backend** | Node.js, Express, tRPC Server, Zod (Validation), Multer (Uploads), pdf-parse |
+| **Database** | MongoDB (Atlas or Local), MongoDB Node.js driver |
+| **AI Layer** | OpenAI chat completion path, highly resilient fallback suggestion generator |
+| **Quality**  | Vitest, TypeScript Strict Mode |
 
-### Backend
-- Node.js + Express
-- tRPC Server
-- Zod
-- Multer (file upload)
-- pdf-parse (PDF text extraction)
-
-### Data
-- MongoDB (Atlas or local)
-- Native MongoDB Node.js driver
-
-### AI
-- OpenAI-compatible chat completion path
-- Resilient fallback suggestion generator for no-quota/network-failure scenarios
-
-### Quality
-- Vitest
-- TypeScript strict mode
-
-## Repository Structure
+## 📂 Repository Structure
 
 ```text
 .
-├── client/                      # React application
-├── server/                      # Express + tRPC + business logic
-├── shared/                      # Shared types/constants
-├── docs/
-│   ├── startup/                 # Setup/run guides
-│   ├── system-overview/         # Architecture and migration
-│   ├── reference/               # API reference and docs index
-│   └── changelog/               # Consolidated change history
-├── drizzle/                     # Legacy schema artifacts (not runtime DB path)
-├── package.json
-└── README.md
+├── 📱 client/                      # React frontend (Vite, Tailwind, shadcn/ui)
+├── ⚙️ server/                      # Express + tRPC server & business logic
+├── 🔗 shared/                      # Shared data types & validation schemas
+├── 📚 docs/                        # Thorough project documentation
+│   ├── 🖼️ assets/                  # UI images and screenshots
+│   ├── 🚀 startup/                 # Setup & configuration guides
+│   ├── 🏗️ system-overview/         # Architecture & database design
+│   ├── 📖 reference/               # API reference & docs index
+│   └── 🕒 changelog/               # Consolidated change history
+├── 🗄️ drizzle/                     # Legacy schema artifacts (not runtime DB path)
+├── 📜 package.json                 # Monorepo and dependency configurations
+└── 📄 README.md                    # Main project overview (You are here!)
 ```
 
 ## Prerequisites
