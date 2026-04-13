@@ -87,7 +87,11 @@ export default function RewriteSuggestions({
           <Lightbulb className="w-6 h-6 text-yellow-500 flex-shrink-0" />
           AI-Powered Rewrite Suggestions
         </h2>
-        <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+        <span className={`text-sm px-3 py-1 rounded-full font-semibold shadow-sm border ${
+          targetRole === 'intern'
+            ? 'bg-blue-100 text-blue-800 border-blue-200'
+            : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+        }`}>
           For {roleLabel}
         </span>
       </div>

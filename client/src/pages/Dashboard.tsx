@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileText, Loader2, AlertCircle, Plus, BarChart3 } from "lucide-react";
@@ -8,6 +9,8 @@ import { trpc } from "@/lib/trpc";
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isCompareMode, setIsCompareMode] = useState(false);
 
   const getHistoryQuery = trpc.resume.getHistory.useQuery(undefined, {
     enabled: !!user,
@@ -94,8 +97,31 @@ export default function Dashboard() {
 
         {/* Resume History */}
         <Card className="border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
+          <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <h2 className="text-2xl font-bold text-slate-900">Analysis History</h2>
+            {resumes.length >= 2 && (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button 
+                  variant={isCompareMode ? "default" : "outline"}
+                  className="w-full sm:w-auto bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  onClick={() => {
+                    setIsCompareMode(!isCompareMode);
+                    if (isCompareMode) setSelectedIds([]);
+                  }}
+                >
+                  {isCompareMode ? "Cancel Compare" : "Compare Resumes"}
+                </Button>
+                {isCompareMode && (
+                  <Button 
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={selectedIds.length < 2}
+                    onClick={() => setLocation(`/compare?ids=${selectedIds.join(",")}`)}
+                  >
+                    Compare Selected ({selectedIds.length})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -121,12 +147,28 @@ export default function Dashboard() {
               {resumes.map((resume: any) => (
                 <div
                   key={resume.id}
-                  className="p-6 hover:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => setLocation(`/results/${resume.id}`)}
+                  className={`p-6 transition-colors cursor-pointer ${selectedIds.includes(resume.id) ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                  onClick={() => {
+                    if (isCompareMode) {
+                      if (selectedIds.includes(resume.id)) {
+                        setSelectedIds(prev => prev.filter(id => id !== resume.id));
+                      } else {
+                        setSelectedIds(prev => [...prev, resume.id]);
+                      }
+                    } else {
+                      setLocation(`/results/${resume.id}`);
+                    }
+                  }}
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
-                      <FileText className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
+                      {isCompareMode ? (
+                        <div className={`w-6 h-6 rounded flex items-center justify-center border mt-2 flex-shrink-0 ${selectedIds.includes(resume.id) ? "bg-blue-600 border-blue-600" : "border-slate-300"}`}>
+                          {selectedIds.includes(resume.id) && <div className="w-2 h-2 bg-white rounded-sm" />}
+                        </div>
+                      ) : (
+                        <FileText className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
+                      )}
                       <div className="flex-1">
                         <h3 className="font-semibold text-slate-900">{resume.fileName}</h3>
                         <p className="text-sm text-slate-600 mt-1">

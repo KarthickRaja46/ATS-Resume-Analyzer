@@ -11,6 +11,20 @@ interface BulletPointSuggestions {
   bulletSuggestions: RewriteSuggestion[];
 }
 
+interface SkillGap {
+  missingSkill: string;
+  importance: string;
+  courseRecommendation: {
+    title: string;
+    platform: string;
+  };
+}
+
+interface SkillGapAnalysisResult {
+  gaps: SkillGap[];
+  summary: string;
+}
+
 const ROLE_KEYWORDS = {
   intern: [
     "Python",
@@ -298,5 +312,117 @@ Keep it concise and actionable.`;
     return targetRole === "intern"
       ? "Prioritize intern-level ATS keywords such as Python, SQL, Excel, Power BI, and data cleaning throughout your summary and experience bullets. Replace generic action verbs with impact-focused statements and include quantifiable outcomes for at least 3 achievements. Keep formatting ATS-safe with clear section headings and concise bullet points."
       : "Strengthen entry-level relevance by adding keywords like ETL, KPI, dashboarding, and stakeholder reporting in your experience section. Rewrite broad responsibilities into action-result bullets with metrics to demonstrate business impact. Maintain a clean, ATS-friendly structure and ensure each section highlights technical depth and measurable outcomes.";
+  }
+}
+
+/**
+ * Generate Skill Gap Analysis with Course Recommendations
+ */
+export async function generateSkillGapAnalysis(
+  resumeText: string,
+  targetRole: "intern" | "job"
+): Promise<SkillGapAnalysisResult> {
+  const roleDescription =
+    targetRole === "intern"
+      ? "Data Analyst Intern"
+      : "Entry-Level Data Analyst";
+
+  const prompt = `You are a career advisor. Compare this candidate's resume with the requirements for a ${roleDescription} role.
+Identify the top 3 critical data analysis skills they are missing or need to strengthen.
+For each skill, recommend one specific, highly-regarded online course (e.g., from Coursera, Udemy, DataCamp) to help them close the gap.
+
+Resume:
+${resumeText}
+
+Return a JSON document exactly matching this structure:
+{
+  "summary": "1-2 sentence overall assessment of their skill readiness",
+  "gaps": [
+    {
+      "missingSkill": "Name of skill (e.g., 'Advanced SQL', 'Tableau', 'Statistical Analysis')",
+      "importance": "Why this is critical for the role (1 sentence)",
+      "courseRecommendation": {
+        "title": "Specific course name",
+        "platform": "Platform name (e.g., Coursera)"
+      }
+    }
+  ]
+}
+Only output valid JSON matching the schema, nothing else.`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful career advisor. Always respond with valid JSON.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "skill_gap_analysis",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              summary: { type: "string" },
+              gaps: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    missingSkill: { type: "string" },
+                    importance: { type: "string" },
+                    courseRecommendation: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        platform: { type: "string" },
+                      },
+                      required: ["title", "platform"],
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ["missingSkill", "importance", "courseRecommendation"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["summary", "gaps"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (!content || typeof content !== "string") {
+      throw new Error("No response from LLM");
+    }
+
+    return JSON.parse(content) as SkillGapAnalysisResult;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn(`[LLM] Skill gap analysis fallback engaged: ${message}`);
+    return {
+      summary: "Based on the content, you have a good foundational base but could strengthen some core tools expected of Data Analysts.",
+      gaps: [
+        {
+          missingSkill: "Advanced SQL (Window Functions & Subqueries)",
+          importance: "Most entry-level and intern roles test heavily on SQL for data extraction and transformation.",
+          courseRecommendation: { title: "SQL for Data Science", platform: "Coursera" }
+        },
+        {
+          missingSkill: "Data Visualization (Tableau or Power BI)",
+          importance: "Stakeholders expect analysts to present findings visually rather than just raw numbers.",
+          courseRecommendation: { title: "Data Visualization with Tableau Option", platform: "DataCamp" }
+        }
+      ]
+    };
   }
 }

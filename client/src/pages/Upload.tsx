@@ -11,7 +11,7 @@ export default function Upload() {
   const { user, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,99 +50,90 @@ export default function Upload() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = e.dataTransfer.files;
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf");
     if (files.length > 0) {
-      const file = files[0];
-      if (file.type === "application/pdf") {
-        setSelectedFile(file);
-      } else {
-        toast.error("Please upload a PDF file");
-      }
+      setSelectedFiles(prev => [...prev, ...files]);
+    } else {
+      toast.error("Please upload PDF files only");
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.currentTarget.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (file.type === "application/pdf") {
-        setSelectedFile(file);
+    if (e.currentTarget.files && e.currentTarget.files.length > 0) {
+      const files = Array.from(e.currentTarget.files).filter(f => f.type === "application/pdf");
+      if (files.length > 0) {
+        setSelectedFiles(prev => [...prev, ...files]);
       } else {
-        toast.error("Please upload a PDF file");
+        toast.error("Please upload PDF files only");
       }
     }
   };
 
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleAnalyze = async () => {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       toast.error("Please select a PDF file");
       return;
     }
 
     setIsAnalyzing(true);
+    let successIds: number[] = [];
 
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      // Upload file to S3 via backend
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      if (!uploadResponse.ok) {
-        throw new Error("File upload failed");
+        if (!uploadResponse.ok) throw new Error(`Upload failed for ${file.name}`);
+        const { fileKey, fileUrl, rawText } = await uploadResponse.json();
+
+        const resumeResult = await uploadMutation.mutateAsync({
+          fileName: file.name,
+          fileKey,
+          fileUrl,
+          rawText,
+        });
+
+        const analysisResponse = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeText: rawText }),
+        });
+
+        if (!analysisResponse.ok) throw new Error(`Analysis failed for ${file.name}`);
+        const analysis = await analysisResponse.json();
+
+        const resumeId = (resumeResult as any)?.id;
+        if (!resumeId) throw new Error("Failed to get resume ID from response");
+
+        await analysisMutation.mutateAsync({
+          resumeId: resumeId,
+          internScore: analysis.internScore,
+          jobScore: analysis.jobScore,
+          matchedKeywordsIntern: analysis.matchedKeywordsIntern,
+          missingKeywordsIntern: analysis.missingKeywordsIntern,
+          matchedKeywordsJob: analysis.matchedKeywordsJob,
+          missingKeywordsJob: analysis.missingKeywordsJob,
+          structureValidation: analysis.structureValidation,
+          recommendations: analysis.recommendations,
+        });
+        
+        successIds.push(resumeId);
       }
 
-      const { fileKey, fileUrl, rawText } = await uploadResponse.json();
-
-      // Save resume to database
-      const resumeResult = await uploadMutation.mutateAsync({
-        fileName: selectedFile.name,
-        fileKey,
-        fileUrl,
-        rawText,
-      });
-
-      // Analyze resume and save analysis
-      const analysisResponse = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText: rawText }),
-      });
-
-      if (!analysisResponse.ok) {
-        throw new Error("Analysis failed");
-      }
-
-      const analysis = await analysisResponse.json();
-
-      // Get the resume ID from the response
-      const resumeId = (resumeResult as any)?.id;
-      
-      if (!resumeId) {
-        console.error("Resume result:", resumeResult);
-        throw new Error("Failed to get resume ID from response");
-      }
-
-      // Save analysis to database
-      await analysisMutation.mutateAsync({
-        resumeId: resumeId,
-        internScore: analysis.internScore,
-        jobScore: analysis.jobScore,
-        matchedKeywordsIntern: analysis.matchedKeywordsIntern,
-        missingKeywordsIntern: analysis.missingKeywordsIntern,
-        matchedKeywordsJob: analysis.matchedKeywordsJob,
-        missingKeywordsJob: analysis.missingKeywordsJob,
-        structureValidation: analysis.structureValidation,
-        recommendations: analysis.recommendations,
-      });
-
-      toast.success("Resume analyzed successfully!");
-      if (resumeId) {
-        setLocation(`/results/${resumeId}`);
+      toast.success(successIds.length > 1 ? "Resumes analyzed!" : "Resume analyzed!");
+      if (successIds.length > 1) {
+        setLocation(`/compare?ids=${successIds.join(",")}`);
+      } else if (successIds.length === 1) {
+        setLocation(`/results/${successIds[0]}`);
       }
     } catch (error) {
       console.error("Error:", error);
@@ -163,12 +154,12 @@ export default function Upload() {
         </div>
 
         {/* Upload Card */}
-        <Card className="p-8 border-2 border-slate-200">
+        <Card className="p-4 sm:p-8 border-2 border-slate-200">
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-6 sm:p-12 text-center transition-colors ${
               isDragging
                 ? "border-blue-500 bg-blue-50"
                 : "border-slate-300 bg-slate-50 hover:border-slate-400"
@@ -188,32 +179,37 @@ export default function Upload() {
               ref={fileInputRef}
               type="file"
               accept=".pdf"
+              multiple
               onChange={handleFileSelect}
               style={{ display: "none" }}
             />
-            <p className="text-sm text-slate-500">PDF files only • Max 10MB</p>
+            <p className="text-sm text-slate-500">PDF files only • Max 10MB • You can select multiple</p>
           </div>
 
           {/* Selected File Display */}
-          {selectedFile && (
-            <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-green-600" />
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">{selectedFile.name}</p>
-                  <p className="text-sm text-slate-600">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+          {selectedFiles.length > 0 && (
+            <div className="mt-8 space-y-3">
+              {selectedFiles.map((file, i) => (
+                <div key={i} className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 truncate" title={file.name}>{file.name}</p>
+                      <p className="text-sm text-slate-600">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(i)}
+                      className="text-slate-600 hover:text-slate-900 flex-shrink-0"
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedFile(null)}
-                  className="text-slate-600 hover:text-slate-900"
-                >
-                  Remove
-                </Button>
-              </div>
+              ))}
             </div>
           )}
 
@@ -223,15 +219,15 @@ export default function Upload() {
               size="lg"
               className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleAnalyze}
-              disabled={!selectedFile || isAnalyzing}
+              disabled={selectedFiles.length === 0 || isAnalyzing}
             >
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
+                  Analyzing {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""}...
                 </>
               ) : (
-                "Analyze Resume"
+                selectedFiles.length > 1 ? "Analyze Batch" : "Analyze Resume"
               )}
             </Button>
             <Button
@@ -247,7 +243,7 @@ export default function Upload() {
         </Card>
 
         {/* Info Section */}
-        <div className="mt-12 grid md:grid-cols-3 gap-6">
+        <div className="mt-8 sm:mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
           {[
             {
               title: "Real-Time Analysis",

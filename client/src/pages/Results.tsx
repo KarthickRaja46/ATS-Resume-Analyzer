@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import RewriteSuggestions from "@/components/RewriteSuggestions";
+import SkillGapAnalysis from "@/components/SkillGapAnalysis";
 
 export default function Results({ params }: any) {
   const resumeId = params?.resumeId || "";
@@ -192,38 +193,37 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <div>
-            <Button
-              variant="ghost"
-              onClick={() => setLocation("/dashboard")}
-              className="mb-4 -ml-2"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Your ATS Analysis Report</h1>
-            <p className="text-slate-600 mt-2">
-              Generated on {new Date().toLocaleDateString()}
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full md:w-auto mt-4 md:mt-0">
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              className="w-full sm:w-auto gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download
-            </Button>
-            <Button
-              onClick={handleShare}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white gap-2 border border-blue-600"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </Button>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-50 bg-slate-50/90 backdrop-blur-md pt-4 pb-4 border-b border-slate-200 mb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <Button
+                variant="ghost"
+                onClick={() => setLocation("/dashboard")}
+                className="mb-2 -ml-2 text-slate-600 hover:text-slate-900"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Your ATS Analysis Report</h1>
+            </div>
+            <div className="flex flex-row flex-wrap gap-2 w-full md:w-auto">
+              <Button
+                variant="outline"
+                onClick={handleDownload}
+                className="flex-1 sm:flex-none gap-2 bg-white"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </Button>
+              <Button
+                onClick={handleShare}
+                className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white gap-2 border border-blue-600 shadow-sm"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -374,8 +374,18 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
             targetRole="intern"
             roleLabel="Data Analyst Intern"
           />
+          <SkillGapAnalysis
+            resumeText={resumeText}
+            targetRole="intern"
+            roleLabel="Data Analyst Intern"
+          />
           <RewriteSuggestions
             analysisId={analysis.id}
+            resumeText={resumeText}
+            targetRole="job"
+            roleLabel="Entry-Level Data Analyst"
+          />
+          <SkillGapAnalysis
             resumeText={resumeText}
             targetRole="job"
             roleLabel="Entry-Level Data Analyst"

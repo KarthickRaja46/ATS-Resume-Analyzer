@@ -54,7 +54,21 @@ export const appRouter = router({
     getHistory: protectedProcedure
       .query(async ({ ctx }) => {
         if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
-        return await getResumesByUserId(ctx.user.id);
+        const resumes = await getResumesByUserId(ctx.user.id);
+        const db = await (await import("./db")).getDb();
+        if (db && resumes.length > 0) {
+          const analyses = await db.collection("analyses")
+            .find({ userId: ctx.user.id })
+            .toArray();
+          return resumes.map(r => {
+            const rAnalysis = analyses.find(a => a.resumeId === r.id);
+            return {
+              ...r,
+              analysis: rAnalysis ?? null
+            };
+          });
+        }
+        return resumes.map(r => ({ ...r, analysis: null }));
       }),
     
     getById: protectedProcedure
@@ -164,6 +178,20 @@ export const appRouter = router({
         }
 
         return getRewriteSuggestionsByAnalysisId(input.analysisId);
+      }),
+      
+    gapAnalysis: protectedProcedure
+      .input(
+        z.object({
+          resumeText: z.string(),
+          targetRole: z.enum(["intern", "job"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+        const { generateSkillGapAnalysis } = await import("./llm-suggestions");
+        return await generateSkillGapAnalysis(input.resumeText, input.targetRole);
       }),
   }),
 
