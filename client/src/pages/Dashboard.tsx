@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FileText, Loader2, AlertCircle, Plus, BarChart3 } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Plus, BarChart3, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 
@@ -56,6 +56,29 @@ export default function Dashboard() {
             <Plus className="w-5 h-5" />
             Analyze New Resume
           </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3 mb-12">
+          <Card className="p-5 border border-slate-200 bg-white">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Resume Tools</p>
+                <p className="text-slate-900 font-semibold mt-1">Templates, export, cover letters</p>
+              </div>
+              <Sparkles className="w-10 h-10 text-blue-600 opacity-20" />
+            </div>
+            <Button className="mt-4 w-full" variant="outline" onClick={() => setLocation("/tools")}>Open Tools</Button>
+          </Card>
+          <Card className="p-5 border border-slate-200 bg-white">
+            <p className="text-sm font-medium text-slate-600">Score Benchmark</p>
+            <p className="text-slate-900 font-semibold mt-1">See where your resume ranks</p>
+            <Button className="mt-4 w-full" variant="outline" onClick={() => setLocation("/benchmark")}>View Benchmark</Button>
+          </Card>
+          <Card className="p-5 border border-slate-200 bg-white">
+            <p className="text-sm font-medium text-slate-600">Template Library</p>
+            <p className="text-slate-900 font-semibold mt-1">ATS-friendly structures by role</p>
+            <Button className="mt-4 w-full" variant="outline" onClick={() => setLocation("/templates")}>Browse Templates</Button>
+          </Card>
         </div>
 
         {/* Stats */}

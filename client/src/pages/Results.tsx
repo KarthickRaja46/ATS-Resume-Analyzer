@@ -8,6 +8,8 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import RewriteSuggestions from "@/components/RewriteSuggestions";
 import SkillGapAnalysis from "@/components/SkillGapAnalysis";
+import { ExportOptions } from "@/components/ExportOptions";
+import { BenchmarkDashboard } from "@/components/BenchmarkDashboard";
 
 export default function Results({ params }: any) {
   const resumeId = params?.resumeId || "";
@@ -32,6 +34,7 @@ export default function Results({ params }: any) {
       const data = getAnalysisQuery.data;
       setAnalysis({
         id: data.id,
+        jobRole: data.jobRole,
         internScore: data.internScore,
         jobScore: data.jobScore,
         matchedKeywordsIntern: JSON.parse(data.matchedKeywordsIntern),
@@ -363,6 +366,34 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
                 </div>
               </div>
             ))}
+          </div>
+        </Card>
+
+        <div className="grid md:grid-cols-2 gap-8 mt-12">
+          <ExportOptions
+            resumeId={parseInt(resumeId)}
+            analysisId={analysis?.id}
+            fileName={getResumeQuery.data?.fileName || "resume.pdf"}
+          />
+          <BenchmarkDashboard
+            userScore={analysis.jobScore}
+            roleKey={analysis.jobRole || "data-analyst-entry"}
+          />
+        </div>
+
+        <Card className="mt-12 p-8 border border-slate-200 bg-slate-50">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">More optimization tools</h2>
+              <p className="text-slate-600">
+                Open templates, cover letters, benchmarking, and the full tools hub from here.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => setLocation("/tools")}>Open Tools Hub</Button>
+              <Button variant="outline" onClick={() => setLocation("/templates")}>Templates</Button>
+              <Button variant="outline" onClick={() => setLocation("/cover-letter")}>Cover Letter</Button>
+            </div>
           </div>
         </Card>
 

@@ -186,6 +186,8 @@ export async function createResume(
     fileKey,
     fileUrl,
     rawText,
+    versionNumber: 1,
+    baseResumeId: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -216,6 +218,10 @@ export async function createAnalysis(analysisData: InsertAnalysis) {
   const analysis: Analysis = {
     id: await nextId(db, "analyses"),
     ...analysisData,
+    jobRole: analysisData.jobRole ?? "data-analyst-entry",
+    jobDescription: analysisData.jobDescription ?? null,
+    customKeywords: analysisData.customKeywords ?? null,
+    benchmarkPercentile: analysisData.benchmarkPercentile ?? null,
     createdAt: now,
     updatedAt: now,
   };

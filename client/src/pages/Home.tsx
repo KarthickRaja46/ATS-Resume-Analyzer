@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, BarChart3, Zap, Shield } from "lucide-react";
+import { CheckCircle2, BarChart3, Zap, Shield, Sparkles } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { useLocation } from "wouter";
 
@@ -50,6 +50,13 @@ export default function Home() {
             >
               Analyze Your Resume
             </Button>
+            {isAuthenticated && (
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={() => setLocation("/tools")}>Open Tools</Button>
+                <Button variant="ghost" onClick={() => setLocation("/templates")}>Templates</Button>
+                <Button variant="ghost" onClick={() => setLocation("/cover-letter")}>Cover Letter</Button>
+              </div>
+            )}
           </div>
 
           {/* Sample Preview Card */}
@@ -125,6 +132,11 @@ export default function Home() {
                 icon: CheckCircle2,
                 title: "AI Suggestions",
                 description: "Get personalized rewrite suggestions powered by advanced AI",
+              },
+              {
+                icon: Sparkles,
+                title: "Tools Hub",
+                description: "Open templates, exports, cover letters, and benchmarking from one place",
               },
             ].map((feature, i) => {
               const Icon = feature.icon;

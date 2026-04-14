@@ -13,7 +13,7 @@
 
 **🌐 Live Application:** [https://ats-resume-analyzer-i3kr.onrender.com](https://ats-resume-analyzer-i3kr.onrender.com)
 
-Production-ready full-stack application to analyze resumes for ATS compatibility, score them against Data Analyst role profiles, and generate rewrite suggestions.
+Production-ready full-stack application to analyze resumes for ATS compatibility, score them against multiple role profiles, and generate rewrite suggestions.
 
 ## 🚀 One-Command Local Run
 
@@ -39,10 +39,12 @@ ATS Resume Analyzer helps users:
 - Compute ATS scores for:
   - Data Analyst Intern
   - Entry-Level Data Analyst
+- Compare resumes across multiple roles and custom job descriptions
 - Identify matched and missing keywords
 - Validate resume structure
 - Save analysis history
 - Generate rewrite suggestions (LLM + resilient fallback)
+- Use a built-in tools hub for exports, templates, benchmarking, and cover letters
 
 ## Architecture At a Glance
 
@@ -56,7 +58,7 @@ Business Layer
   - PDF extraction
   - Suggestion generator
   ->
-MongoDB (users, resumes, analyses, rewriteSuggestions)
+MongoDB (users, resumes, analyses, rewriteSuggestions, templates, benchmarks, preferences)
 ```
 
 Detailed architecture docs:
@@ -72,6 +74,7 @@ Detailed architecture docs:
 5. Analysis is persisted through `analysis.create`.
 6. Results page loads data by `resumeId`.
 7. Suggestion generation writes records to `rewriteSuggestions`.
+8. Optional tools hub routes surface templates, export, benchmarking, and cover letter generation.
 
 ## 🛠️ Tech Stack
 
@@ -210,6 +213,22 @@ pnpm format   # format codebase
 - `suggestions.generate`
 - `suggestions.summary`
 - `suggestions.byAnalysisId`
+- `multiRole.analyze`
+- `multiRole.analyzeCustomRole`
+- `export.resume`
+- `export.analysisReport`
+- `export.bulkExport`
+- `coverLetter.generate`
+- `coverLetter.calculateScore`
+- `benchmark.calculatePercentile`
+- `benchmark.compareRoles`
+- `benchmark.generateReport`
+- `templates.getAll`
+- `templates.getByRole`
+- `templates.getByIndustry`
+- `templates.getRecommendations`
+- `templates.applyTemplate`
+- `util.getJobRoles`
 
 Full API documentation:
 - [docs/reference/API_REFERENCE.md](docs/reference/API_REFERENCE.md)
@@ -220,6 +239,23 @@ Full API documentation:
 - `resumes`
 - `analyses`
 - `rewriteSuggestions`
+- `roleDefinitions`
+- `resumeTemplates`
+- `jobDescriptions`
+- `customKeywords`
+- `coverLetters`
+- `scoreBenchmarks`
+- `collaborations`
+- `searchSavedFilters`
+- `userPreferences`
+
+## New Routes
+
+- `/tools` - central tools hub
+- `/templates` - template library shortcut
+- `/benchmark` - benchmarking shortcut
+- `/cover-letter` - cover letter shortcut
+- `/tools/:section` - direct jump to a specific tool section
 
 Behavior highlights:
 - Resume and analysis are always persisted.
