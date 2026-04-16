@@ -52,14 +52,14 @@ export async function handleFileUpload(req: any, res: Response) {
  */
 export async function handleAnalysis(req: Request, res: Response) {
   try {
-    const { resumeText } = req.body;
+    const { resumeText, roleKey } = req.body;
 
     if (!resumeText || typeof resumeText !== "string") {
       return res.status(400).json({ error: "Resume text is required" });
     }
 
     // Analyze resume
-    const analysis = analyzeResume(resumeText);
+    const analysis = analyzeResume(resumeText, roleKey);
 
     res.json(analysis);
   } catch (error) {

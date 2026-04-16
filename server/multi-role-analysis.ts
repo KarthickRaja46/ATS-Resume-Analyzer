@@ -107,13 +107,15 @@ const roleKeywordProfiles: Record<string, { keywords: string[]; weights: Record<
   },
 };
 
-export function analyzeMultiRole(
+export async function analyzeMultiRole(
   resumeText: string,
   customKeywords?: string[],
   jobDescription?: string
-): RoleAnalysisResult[] {
+): Promise<RoleAnalysisResult[]> {
   const results: RoleAnalysisResult[] = [];
   const normalizedResume = resumeText.toLowerCase();
+
+  const jdKeywords = jobDescription ? await extractJobDescriptionKeywords(jobDescription) : [];
 
   for (const [roleKey, roleConfig] of Object.entries(JOB_ROLES)) {
     const profile = roleKeywordProfiles[roleKey];
@@ -123,7 +125,7 @@ export function analyzeMultiRole(
     const keywordsToMatch = [
       ...profile.keywords,
       ...(customKeywords || []),
-      ...(jobDescription ? extractJobDescriptionKeywords(jobDescription) : [])
+      ...jdKeywords
     ];
 
     const matched = keywordsToMatch.filter(kw =>
@@ -156,13 +158,13 @@ export function analyzeMultiRole(
   return results.sort((a, b) => b.score - a.score);
 }
 
-export function analyzeCustomRole(
+export async function analyzeCustomRole(
   resumeText: string,
   jobDescription: string,
   customKeywords?: string[]
-): RoleAnalysisResult {
+): Promise<RoleAnalysisResult> {
   const normalizedResume = resumeText.toLowerCase();
-  const extractedKeywords = extractJobDescriptionKeywords(jobDescription);
+  const extractedKeywords = await extractJobDescriptionKeywords(jobDescription);
   const allKeywords = [
     ...extractedKeywords,
     ...(customKeywords || [])
@@ -188,13 +190,40 @@ export function analyzeCustomRole(
   };
 }
 
-function extractJobDescriptionKeywords(jobDescription: string): string[] {
-  // Extract potential keywords from job description
-  // This is a basic implementation - could be enhanced with NLP
+import { invokeLLM } from "./_core/llm";
+
+async function extractJobDescriptionKeywords(jobDescription: string): Promise<string[]> {
+  const prompt = `Extract exactly 15-20 most important technical and soft skills/keywords from this job description for a Data-related role. 
+  Focus on:
+  - Technical tools (Python, SQL, etc.)
+  - Analytical methods (A/B testing, regression)
+  - Domains (Fintech, Healthcare)
+  - Key responsibilities (Stakeholder management, Reporting)
+  
+  Job Description:
+  ${jobDescription}
+  
+  Return ONLY a comma-separated list of keywords, no other text.`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are a specialized technical recruiter." },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (content && typeof content === "string") {
+      return content.split(",").map(k => k.trim()).filter(Boolean);
+    }
+  } catch (error) {
+    console.warn("[Multi-Role] LLM extraction failed, using fallback regex.");
+  }
+
+  // Fallback: Original regex implementation
   const words = jobDescription.split(/\s+/);
   const technicalKeywords: string[] = [];
-
-  // Look for common technical terms, tools, frameworks, languages
   const commonTechTerms = [
     "javascript", "python", "java", "golang", "rust", "typescript",
     "react", "angular", "vue", "nodejs", "express", "django", "flask",
@@ -202,7 +231,7 @@ function extractJobDescriptionKeywords(jobDescription: string): string[] {
     "docker", "kubernetes", "aws", "gcp", "azure",
     "git", "ci/cd", "agile", "scrum", "rest", "api", "graphql",
     "machine learning", "ai", "nlp", "deep learning",
-    "cloud", "microservices", "serverless", "devops"
+    "cloud", "microservices", "serverless", "devops", "excel", "tableau", "power bi"
   ];
 
   for (const word of words) {
@@ -212,15 +241,7 @@ function extractJobDescriptionKeywords(jobDescription: string): string[] {
     }
   }
 
-  // Extract 2-3 word phrases
-  for (let i = 0; i < words.length - 2; i++) {
-    const phrase = words.slice(i, i + 3).join(" ").toLowerCase();
-    if (commonTechTerms.some(term => phrase.includes(term))) {
-      technicalKeywords.push(phrase);
-    }
-  }
-
-  return Array.from(new Set(technicalKeywords)).slice(0, 30); // Limit to 30
+  return Array.from(new Set(technicalKeywords)).slice(0, 30);
 }
 
 function calculateWeightedScore(

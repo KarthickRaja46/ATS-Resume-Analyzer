@@ -12,6 +12,7 @@ export interface ATSAnalysisResult {
   missingKeywordsJob: string[];
   structureValidation: StructureValidation;
   recommendations: Recommendation[];
+  skillMatrix: Record<string, number>; // New: Skill proficiency for visualization
 }
 
 export interface StructureValidation {
@@ -209,15 +210,60 @@ function generateRecommendations(
 }
 
 /**
+ * Calculate proficiency matrix for visualization
+ */
+function calculateSkillMatrix(text: string): Record<string, number> {
+  const normalizedText = text.toLowerCase();
+  
+  const categories = {
+    "Programming": ["python", " r ", "java", "golang", "typescript", "javascript", "scripting"],
+    "Data Tools": ["sql", "excel", "tableau", "power bi", "pandas", "numpy", "matplotlib", "seaborn"],
+    "Statistics": ["statistics", "modeling", "hypothesis", "probability", "regression", "math", "analytics"],
+    "Data Infrastructure": ["database", "etl", "mysql", "postgres", "mongodb", "aws", "cloud", "warehouse"],
+    "Soft Skills": ["communication", "collaboration", "stakeholder", "presentation", "analytical", "teamwork"],
+  };
+
+  const matrix: Record<string, number> = {};
+
+  for (const [category, keywords] of Object.entries(categories)) {
+    let matches = 0;
+    for (const kw of keywords) {
+      if (normalizedText.includes(kw)) matches++;
+    }
+    // Scale to percentage (roughly)
+    matrix[category] = Math.min(100, Math.round((matches / Math.max(1, Math.min(4, keywords.length))) * 100));
+  }
+
+  return matrix;
+}
+
+/**
  * Main ATS analysis function
  */
-export function analyzeResume(resumeText: string): ATSAnalysisResult {
-  // Calculate scores for both roles
-  const internAnalysis = calculateKeywordScore(resumeText, INTERN_KEYWORDS);
-  const jobAnalysis = calculateKeywordScore(resumeText, JOB_KEYWORDS);
+export function analyzeResume(resumeText: string, roleKey: string = "data-analyst-entry"): ATSAnalysisResult {
+  // Use professional keywords based on the roleKey
+  // For now, mapping known roles to keyword sets
+  const roleKeywords: Record<string, string[]> = {
+    "software-engineer": ["Java", "Python", "Git", "Docker", "REST API", "Database", "Testing", "CI/CD", "Agile", "OOP"],
+    "frontend-engineer": ["React", "JavaScript", "TypeScript", "HTML", "CSS", "Next.js", "Redux", "Tailwind", "Responsive"],
+    "backend-engineer": ["Node.js", "Express", "SQL", "NoSQL", "Docker", "Microservices", "Redis", "Authentication", "API"],
+    "fullstack-engineer": ["React", "Node.js", "TypeScript", "SQL", "Git", "Docker", "API", "Testing", "JavaScript"],
+    "data-scientist": ["Python", "R", "Machine Learning", "Statistics", "Scikit-learn", "TensorFlow", "Pandas", "NLP", "SQL"],
+    "product-manager": ["Product Strategy", "Agile", "Scrum", "User Research", "Roadmap", "Analytics", "Stakeholder", "KPI"],
+    "data-analyst-entry": JOB_KEYWORDS,
+    "data-analyst-intern": INTERN_KEYWORDS,
+  };
+
+  const targetKeywords = roleKeywords[roleKey] || JOB_KEYWORDS;
+  const foundationKeywords = INTERN_KEYWORDS; // Use intern keywords as a foundation/internship benchmark
+
+  // Calculate scores
+  const internAnalysis = calculateKeywordScore(resumeText, foundationKeywords);
+  const jobAnalysis = calculateKeywordScore(resumeText, targetKeywords);
 
   // Validate structure
   const structureValidation = validateResumeStructure(resumeText);
+  const skillMatrix = calculateSkillMatrix(resumeText);
 
   // Generate recommendations
   const recommendations = generateRecommendations(
@@ -237,5 +283,6 @@ export function analyzeResume(resumeText: string): ATSAnalysisResult {
     missingKeywordsJob: jobAnalysis.missing,
     structureValidation,
     recommendations,
+    skillMatrix,
   };
 }

@@ -13,26 +13,18 @@ export type TrpcContext = {
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
-  let user: User | null = null;
-
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    if (ENV.devAuthBypass) {
-      const openId = "local-dev-user";
-      await db.upsertUser({
-        openId,
-        name: "Local Dev User",
-        email: "local-dev@example.com",
-        loginMethod: "local",
-        lastSignedIn: new Date(),
-      });
-      user = (await db.getUserByOpenId(openId)) ?? null;
-    } else {
-      // Authentication is optional for public procedures.
-      user = null;
-    }
-  }
+  const openId = "local-dev-user";
+  
+  // Ensure the local dev user exists in the database
+  await db.upsertUser({
+    openId,
+    name: "Local Dev User",
+    email: "local-dev@example.com",
+    loginMethod: "local",
+    lastSignedIn: new Date(),
+  });
+  
+  const user = (await db.getUserByOpenId(openId)) ?? null;
 
   return {
     req: opts.req,

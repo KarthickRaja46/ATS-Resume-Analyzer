@@ -409,18 +409,38 @@ Only output valid JSON matching the schema, nothing else.`;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.warn(`[LLM] Skill gap analysis fallback engaged: ${message}`);
+    
+    // Dynamic fallback based on role
+    if (targetRole === "intern") {
+      return {
+        summary: "Your profile has a solid start, but you need to demonstrate more hands-on experience with key internship tools.",
+        gaps: [
+          {
+            missingSkill: "Practical Python/Pandas Data Cleaning",
+            importance: "Interns are often tasked with preparation and cleaning; mastery of Pandas is highly expected.",
+            courseRecommendation: { title: "Data Manipulation with pandas", platform: "DataCamp" }
+          },
+          {
+            missingSkill: "Basic SQL & Joins",
+            importance: "Getting data out of databases is the most common day-to-day task for any data role.",
+            courseRecommendation: { title: "Introduction to SQL", platform: "Udemy" }
+          }
+        ]
+      };
+    }
+
     return {
-      summary: "Based on the content, you have a good foundational base but could strengthen some core tools expected of Data Analysts.",
+      summary: "Your foundation is good, but for entry-level roles, you must show more depth in business intelligence and automation.",
       gaps: [
         {
           missingSkill: "Advanced SQL (Window Functions & Subqueries)",
-          importance: "Most entry-level and intern roles test heavily on SQL for data extraction and transformation.",
+          importance: "Entry-level roles require handling complex datasets that simple SELECT statements cannot solve.",
           courseRecommendation: { title: "SQL for Data Science", platform: "Coursera" }
         },
         {
-          missingSkill: "Data Visualization (Tableau or Power BI)",
-          importance: "Stakeholders expect analysts to present findings visually rather than just raw numbers.",
-          courseRecommendation: { title: "Data Visualization with Tableau Option", platform: "DataCamp" }
+          missingSkill: "BI Tool Specialization (Power BI or Tableau)",
+          importance: "Stakeholders expect professional-grade visualization and reporting at the junior level.",
+          courseRecommendation: { title: "Data Visualization with Power BI", platform: "Coursera" }
         }
       ]
     };

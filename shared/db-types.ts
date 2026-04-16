@@ -52,6 +52,7 @@ export type Analysis = {
   recommendations: string;
   customKeywords: string | null;
   benchmarkPercentile: string | null;
+  skillMatrix: string | null; // New: JSON string of skill proficiency
   createdAt: Date;
   updatedAt: Date;
 };

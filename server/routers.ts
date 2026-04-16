@@ -43,7 +43,6 @@ export const appRouter = router({
         rawText: z.string(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         
         const resume = await createResume(
           ctx.user.id,
@@ -58,19 +57,19 @@ export const appRouter = router({
     
     getHistory: protectedProcedure
       .query(async ({ ctx }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         const resumes = await getResumesByUserId(ctx.user.id);
-        const db = await (await import("./db")).getDb();
-        if (db && resumes.length > 0) {
-          const analyses = await db.collection("analyses")
-            .find({ userId: ctx.user.id })
-            .toArray();
+        if (resumes.length === 0) return [];
+
+        const db = (await import("./db")).getDb();
+        if (db) {
+          const { data: analyses } = await db
+            .from("analyses")
+            .select("*")
+            .eq("user_id", ctx.user.id);
+
           return resumes.map(r => {
-            const rAnalysis = analyses.find(a => a.resumeId === r.id);
-            return {
-              ...r,
-              analysis: rAnalysis ?? null
-            };
+            const rAnalysis = analyses?.find((a: Record<string, unknown>) => a.resume_id === r.id) ?? null;
+            return { ...r, analysis: rAnalysis };
           });
         }
         return resumes.map(r => ({ ...r, analysis: null }));
@@ -79,7 +78,6 @@ export const appRouter = router({
     getById: protectedProcedure
       .input(z.object({ resumeId: z.number() }))
       .query(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         const resume = await getResumeById(input.resumeId);
         if (!resume || resume.userId !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN" });
@@ -98,7 +96,6 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
         const analysis = await getAnalysisById(input.analysisId);
         if (!analysis || analysis.userId !== ctx.user.id) {
@@ -146,7 +143,6 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
         const analysis = await getAnalysisById(input.analysisId);
         if (!analysis || analysis.userId !== ctx.user.id) {
@@ -175,7 +171,6 @@ export const appRouter = router({
     byAnalysisId: protectedProcedure
       .input(z.object({ analysisId: z.number() }))
       .query(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
         const analysis = await getAnalysisById(input.analysisId);
         if (!analysis || analysis.userId !== ctx.user.id) {
@@ -193,7 +188,6 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
         const { generateSkillGapAnalysis } = await import("./llm-suggestions");
         return await generateSkillGapAnalysis(input.resumeText, input.targetRole);
@@ -214,7 +208,6 @@ export const appRouter = router({
         recommendations: z.any(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         
         const analysis = await createAnalysis({
           resumeId: input.resumeId,
@@ -239,12 +232,25 @@ export const appRouter = router({
     getByResumeId: protectedProcedure
       .input(z.object({ resumeId: z.number() }))
       .query(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         const analysis = await getAnalysisByResumeId(input.resumeId);
         if (!analysis || analysis.userId !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN" });
         }
-        return analysis;
+
+        const resume = await getResumeById(input.resumeId);
+        
+        // RE-CALCULATE Skill Matrix on the fly if not in DB to fixed UI error
+        let skillMatrix = {};
+        if (resume?.rawText) {
+          const { analyzeResume } = await import("./ats-engine");
+          const tempAnalysis = analyzeResume(resume.rawText);
+          skillMatrix = tempAnalysis.skillMatrix;
+        }
+
+        return {
+          ...analysis,
+          skillMatrix: JSON.stringify(skillMatrix)
+        };
       }),
   }),
 
@@ -257,8 +263,7 @@ export const appRouter = router({
         customKeywords: z.array(z.string()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
-        return analyzeMultiRole(input.resumeText, input.customKeywords, input.jobDescription);
+        return await analyzeMultiRole(input.resumeText, input.customKeywords, input.jobDescription);
       }),
 
     analyzeCustomRole: protectedProcedure
@@ -268,8 +273,7 @@ export const appRouter = router({
         customKeywords: z.array(z.string()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
-        return analyzeCustomRole(input.resumeText, input.jobDescription, input.customKeywords);
+        return await analyzeCustomRole(input.resumeText, input.jobDescription, input.customKeywords);
       }),
   }),
 
@@ -282,7 +286,6 @@ export const appRouter = router({
         includeAnalysis: z.boolean().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         
         const resume = await getResumeById(input.resumeId);
         if (!resume || resume.userId !== ctx.user.id) {
@@ -308,7 +311,6 @@ export const appRouter = router({
         format: z.enum(["pdf", "json", "markdown"]),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         
         const analysis = await getAnalysisById(input.analysisId);
         if (!analysis || analysis.userId !== ctx.user.id) {
@@ -333,7 +335,6 @@ export const appRouter = router({
         format: z.enum(["csv", "json"]),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
         const result = await exportBulkAnalyses([], input.format);
 
@@ -356,7 +357,6 @@ export const appRouter = router({
         tone: z.enum(["professional", "friendly", "enthusiastic"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         
         const result = await generateCoverLetter({
           resumeText: input.resumeText,
@@ -469,6 +469,46 @@ export const appRouter = router({
         industry: role.industry,
       }));
     }),
+  }),
+
+  // NEW: AI Chat
+  ai: router({
+    chat: publicProcedure
+      .input(z.object({
+        messages: z.array(z.object({
+          role: z.enum(["system", "user", "assistant"]),
+          content: z.string(),
+        })),
+        context: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { messages, context } = input;
+        
+        // System prompt to give the AI context about the project
+        const systemMessage = { 
+          role: "system", 
+          content: `You are an expert AI Career Coach and ATS specialist. 
+          Use this context about the candidate's analysis: ${context || "No context provided"}.
+          Be encouraging, specific, and professional.` 
+        };
+        
+        try {
+          const { invokeLLM } = await import("./_core/llm");
+          const response = await invokeLLM({
+            messages: [systemMessage, ...messages] as any,
+          });
+          return response.choices[0]?.message.content || "I'm sorry, I couldn't generate a response.";
+        } catch (error: any) {
+          console.error("AI Chat Error Details:", error);
+          const isQuota = error?.message?.includes("429") || error?.message?.includes("quota");
+          
+          if (isQuota) {
+            return "Skill Issue: AI Quota Exceeded. Please check your OpenAI billing or provide a GOOGLE_GENAI_API_KEY in your .env file for a free fallback.";
+          }
+          
+          return "I'm currently having trouble connecting to my AI brain. Please try again in a moment.";
+        }
+      }),
   }),
 });
 

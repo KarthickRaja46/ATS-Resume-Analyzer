@@ -6,7 +6,8 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white">
   <img alt="Node.js" src="https://img.shields.io/badge/node.js-6DA55F?style=flat&logo=node.js&logoColor=white">
   <img alt="Express.js" src="https://img.shields.io/badge/express.js-%23404d59.svg?style=flat&logo=express&logoColor=%2361DAFB">
-  <img alt="MongoDB" src="https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=flat&logo=mongodb&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white">
+  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white">
   <img alt="TailwindCSS" src="https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white">
 </div>
 <br>
@@ -58,12 +59,12 @@ Business Layer
   - PDF extraction
   - Suggestion generator
   ->
-MongoDB (users, resumes, analyses, rewriteSuggestions, templates, benchmarks, preferences)
+Supabase (PostgreSQL - users, resumes, analyses, rewriteSuggestions, roleDefinitions, etc.)
 ```
 
 Detailed architecture docs:
 - [docs/system-overview/ARCHITECTURE.md](docs/system-overview/ARCHITECTURE.md)
-- [docs/system-overview/MONGODB_MIGRATION.md](docs/system-overview/MONGODB_MIGRATION.md)
+- [docs/system-overview/SUPABASE_SETUP.md](docs/system-overview/SUPABASE_SETUP.md)
 
 ## End-to-End Flow
 
@@ -82,7 +83,7 @@ Detailed architecture docs:
 |:---|:---|
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, Wouter, tRPC Client, React Query |
 | **Backend** | Node.js, Express, tRPC Server, Zod (Validation), Multer (Uploads), pdf-parse |
-| **Database** | MongoDB (Atlas or Local), MongoDB Node.js driver |
+| **Database** | Supabase (PostgreSQL), Supabase-js Client |
 | **AI Layer** | OpenAI chat completion path, highly resilient fallback suggestion generator |
 | **Quality**  | Vitest, TypeScript Strict Mode |
 
@@ -99,16 +100,15 @@ Detailed architecture docs:
 │   ├── 🏗️ system-overview/         # Architecture & database design
 │   ├── 📖 reference/               # API reference & docs index
 │   └── 🕒 changelog/               # Consolidated change history
-├── 🗄️ drizzle/                     # Legacy schema artifacts (not runtime DB path)
+├── 🗄️ supabase/                     # Supabase schema SQL and migrations
 ├── 📜 package.json                 # Monorepo and dependency configurations
 └── 📄 README.md                    # Main project overview (You are here!)
 ```
 
 ## Prerequisites
 
-- Node.js 18+
 - pnpm 10+
-- MongoDB Atlas account or local MongoDB
+- Supabase account and project
 - OpenAI API key (optional but recommended)
 
 ## Quick Start
@@ -130,7 +130,9 @@ npx pnpm install
 Create `.env.local` in project root:
 
 ```env
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db>?retryWrites=true&w=majority
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
 OPENAI_API_KEY=sk-...
 JWT_SECRET=replace-with-min-32-char-secret
 NODE_ENV=development
@@ -181,7 +183,8 @@ pnpm format   # format codebase
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `MONGODB_URI` | Yes | MongoDB connection string |
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role secret |
 | `JWT_SECRET` | Yes | Session/JWT signing secret |
 | `NODE_ENV` | Yes | Runtime mode (`development`/`production`) |
 | `OPENAI_API_KEY` | Recommended | LLM suggestions and summary |
@@ -233,7 +236,7 @@ pnpm format   # format codebase
 Full API documentation:
 - [docs/reference/API_REFERENCE.md](docs/reference/API_REFERENCE.md)
 
-## Data Model (MongoDB Collections)
+## Data Model (Supabase Tables)
 
 - `users`
 - `resumes`
@@ -277,10 +280,9 @@ Behavior highlights:
 - Ensure uploaded file is a valid PDF and size <= 10MB.
 - Check server logs for parser errors.
 
-### MongoDB connection issues
-- Verify Atlas IP allowlist.
-- Verify username/password in `MONGODB_URI`.
-- Prefer full non-SRV URI if your network has SRV DNS restrictions.
+### Supabase connection issues
+- Verify Project URL and Service Role Key in `.env.local`.
+- Ensure your database schema is pushed using the scripts in `supabase/schema.sql`.
 
 ### pnpm or node not found
 - Restart terminal after install.

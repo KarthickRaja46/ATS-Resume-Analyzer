@@ -6,6 +6,7 @@ import { Upload as UploadIcon, FileText, Loader2, AlertCircle } from "lucide-rea
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { JOB_ROLES } from "@shared/const";
 
 export default function Upload() {
   const { user, loading: authLoading } = useAuth();
@@ -13,6 +14,7 @@ export default function Upload() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("data-analyst-entry");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = trpc.resume.upload.useMutation();
@@ -105,7 +107,10 @@ export default function Upload() {
         const analysisResponse = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resumeText: rawText }),
+          body: JSON.stringify({ 
+            resumeText: rawText,
+            roleKey: selectedRole
+          }),
         });
 
         if (!analysisResponse.ok) throw new Error(`Analysis failed for ${file.name}`);
@@ -124,6 +129,7 @@ export default function Upload() {
           missingKeywordsJob: analysis.missingKeywordsJob,
           structureValidation: analysis.structureValidation,
           recommendations: analysis.recommendations,
+          skillMatrix: analysis.skillMatrix,
         });
         
         successIds.push(resumeId);
@@ -152,6 +158,22 @@ export default function Upload() {
             Upload your PDF resume to get instant ATS scoring and optimization recommendations
           </p>
         </div>
+
+        {/* Role Selection */}
+        <Card className="p-6 mb-8 border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Select Target Role</h3>
+          <select 
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white font-medium text-slate-700"
+          >
+            {Object.values(JOB_ROLES).map((role) => (
+              <option key={role.key} value={role.key}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </Card>
 
         {/* Upload Card */}
         <Card className="p-4 sm:p-8 border-2 border-slate-200">

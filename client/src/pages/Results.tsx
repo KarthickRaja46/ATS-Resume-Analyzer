@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, AlertCircle, Download, Share2, Loader2, ArrowLeft, TrendingUp } from "lucide-react";
+import { CheckCircle2, AlertCircle, Share2, Loader2, ArrowLeft, TrendingUp, Radar as RadarIcon } from "lucide-react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import RewriteSuggestions from "@/components/RewriteSuggestions";
 import SkillGapAnalysis from "@/components/SkillGapAnalysis";
-import { ExportOptions } from "@/components/ExportOptions";
 import { BenchmarkDashboard } from "@/components/BenchmarkDashboard";
+import { AIChatBox, Message } from "@/components/AIChatBox";
+import { Sparkles as SparklesIcon } from "lucide-react";
 
 export default function Results({ params }: any) {
   const resumeId = params?.resumeId || "";
@@ -18,6 +20,7 @@ export default function Results({ params }: any) {
   const [analysis, setAnalysis] = useState<any>(null);
   const [resumeText, setResumeText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
 
   const getAnalysisQuery = trpc.analysis.getByResumeId.useQuery(
     { resumeId: parseInt(resumeId) },
@@ -28,6 +31,16 @@ export default function Results({ params }: any) {
     { resumeId: parseInt(resumeId) },
     { enabled: !!user && !!resumeId }
   );
+
+  const chatMutation = trpc.ai.chat.useMutation({
+    onSuccess: (response: string) => {
+      setChatMessages(prev => [...prev, { role: "assistant", content: response }]);
+    },
+    onError: (err) => {
+      console.error("AI Error:", err);
+      toast.error(err.message || "AI Error: Please ensure your OPENAI_API_KEY is set in .env.local");
+    }
+  });
 
   useEffect(() => {
     if (getAnalysisQuery.data) {
@@ -43,6 +56,7 @@ export default function Results({ params }: any) {
         missingKeywordsJob: JSON.parse(data.missingKeywordsJob),
         structureValidation: JSON.parse(data.structureValidation),
         recommendations: JSON.parse(data.recommendations),
+        skillMatrix: data.skillMatrix ? JSON.parse(data.skillMatrix) : {},
       });
       setLoading(false);
     }
@@ -75,55 +89,6 @@ export default function Results({ params }: any) {
     );
   }
 
-  const handleDownload = () => {
-    const reportText = `
-ATS Resume Analysis Report
-==========================
-
-Data Analyst Intern Role
-Score: ${analysis.internScore}%
-
-Matched Keywords (${analysis.matchedKeywordsIntern.length}):
-${analysis.matchedKeywordsIntern.join(", ")}
-
-Missing Keywords (${analysis.missingKeywordsIntern.length}):
-${analysis.missingKeywordsIntern.join(", ")}
-
----
-
-Entry-Level Data Analyst Role
-Score: ${analysis.jobScore}%
-
-Matched Keywords (${analysis.matchedKeywordsJob.length}):
-${analysis.matchedKeywordsJob.join(", ")}
-
-Missing Keywords (${analysis.missingKeywordsJob.length}):
-${analysis.missingKeywordsJob.join(", ")}
-
----
-
-Resume Structure Validation
-${Object.entries(analysis.structureValidation)
-  .filter(([key]) => key !== "missingSection")
-  .map(([key, value]) => `${key}: ${value ? "✓" : "✗"}`)
-  .join("\n")}
-
----
-
-Recommendations
-${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`).join("\n\n")}
-    `;
-
-    const element = document.createElement("a");
-    element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(reportText));
-    element.setAttribute("download", `ats-report-${new Date().toISOString().split("T")[0]}.txt`);
-    element.style.display = "none";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success("Report downloaded!");
-  };
-
   const handleShare = () => {
     const shareText = `I just analyzed my resume with ATS Resume Analyzer!\n\nData Analyst Intern: ${analysis.internScore}%\nEntry-Level Data Analyst: ${analysis.jobScore}%\n\nCheck it out: ${window.location.href}`;
 
@@ -136,6 +101,24 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
       navigator.clipboard.writeText(shareText);
       toast.success("Share text copied to clipboard!");
     }
+  };
+
+  const handleSendMessage = (content: string) => {
+    const newMessages: Message[] = [...chatMessages, { role: "user", content }];
+    setChatMessages(newMessages);
+    
+    // Provide analysis context to the AI
+    const analysisContext = `
+      Resume Text: ${resumeText.substring(0, 1000)}...
+      Intern Score: ${analysis.internScore}%
+      Job Score: ${analysis.jobScore}%
+      Missing Skills: ${analysis.missingKeywordsJob.slice(0, 10).join(", ")}
+    `;
+    
+    chatMutation.mutate({ 
+      messages: newMessages,
+      context: analysisContext
+    });
   };
 
   const ScoreGauge = ({ score, label }: { score: number; label: string }) => {
@@ -193,6 +176,35 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
     );
   };
 
+  const SkillRadar = ({ data }: { data: any }) => {
+    const radarData = Object.entries(data).map(([skill, value]) => ({
+      subject: skill,
+      A: value,
+      fullMark: 100,
+    }));
+
+    if (radarData.length === 0) return null;
+
+    return (
+      <div className="h-[300px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+            <PolarGrid stroke="#e2e8f0" />
+            <PolarAngleAxis dataKey="subject" tick={{ fill: "#64748b", fontSize: 12 }} />
+            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar
+              name="Skills"
+              dataKey="A"
+              stroke="#3b82f6"
+              fill="#3b82f6"
+              fillOpacity={0.6}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -212,14 +224,6 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
             </div>
             <div className="flex flex-row flex-wrap gap-2 w-full md:w-auto">
               <Button
-                variant="outline"
-                onClick={handleDownload}
-                className="flex-1 sm:flex-none gap-2 bg-white"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </Button>
-              <Button
                 onClick={handleShare}
                 className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white gap-2 border border-blue-600 shadow-sm"
               >
@@ -230,208 +234,172 @@ ${analysis.recommendations.map((rec: any) => `${rec.title}: ${rec.description}`)
           </div>
         </div>
 
-        {/* ATS Scores */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          <Card className="p-8 border border-slate-200">
-            <ScoreGauge score={analysis.internScore} label="Data Analyst Intern" />
+        {/* ─── PHASE 1: HIGH-LEVEL DASHBOARD ─── */}
+        <div className="grid lg:grid-cols-12 gap-6 mb-8">
+          <Card className="lg:col-span-4 p-6 border border-slate-200 flex flex-col justify-center bg-white shadow-sm hover:shadow-md transition-shadow">
+            <ScoreGauge score={analysis.jobScore} label="Primary Role Match" />
           </Card>
-          <Card className="p-8 border border-slate-200">
-            <ScoreGauge score={analysis.jobScore} label="Entry-Level Data Analyst" />
+          
+          <Card className="lg:col-span-4 p-6 border border-slate-200 bg-white shadow-sm flex flex-col items-center">
+            <h3 className="text-center font-bold text-slate-800 mb-4 flex items-center justify-center gap-2 text-md">
+              <RadarIcon className="w-5 h-5 text-blue-600" />
+              Skill Proficiency
+            </h3>
+            <SkillRadar data={analysis.skillMatrix} />
+          </Card>
+
+          <Card className="lg:col-span-4 p-6 border border-slate-200 flex flex-col justify-center bg-white shadow-sm hover:shadow-md transition-shadow">
+            <ScoreGauge score={analysis.internScore} label="General Foundation" />
           </Card>
         </div>
 
-        {/* Keyword Analysis */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {/* Intern Keywords */}
-          <Card className="p-8 border border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">Data Analyst Intern Keywords</h2>
-            
-            <div className="mb-6">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                Matched ({analysis.matchedKeywordsIntern.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {analysis.matchedKeywordsIntern.map((kw: string) => (
-                  <span
-                    key={kw}
-                    className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full font-medium"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-                Missing ({analysis.missingKeywordsIntern.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {analysis.missingKeywordsIntern.map((kw: string) => (
-                  <span
-                    key={kw}
-                    className="px-3 py-1 bg-orange-100 text-orange-700 text-sm rounded-full font-medium"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
+        {/* ─── PHASE 2: KEYWORD ANALYSIS (Side-by-Side) ─── */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+           <Card className="p-6 border border-slate-200 bg-white">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-3">Keywords Found</h2>
+            <div className="flex flex-wrap gap-2">
+              {analysis.matchedKeywordsJob.map((kw: string) => (
+                <span key={kw} className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100 uppercase tracking-tight">
+                  {kw}
+                </span>
+              ))}
             </div>
           </Card>
 
-          {/* Job Keywords */}
-          <Card className="p-8 border border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6">Entry-Level Data Analyst Keywords</h2>
-            
-            <div className="mb-6">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                Matched ({analysis.matchedKeywordsJob.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {analysis.matchedKeywordsJob.map((kw: string) => (
-                  <span
-                    key={kw}
-                    className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full font-medium"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-                Missing ({analysis.missingKeywordsJob.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {analysis.missingKeywordsJob.map((kw: string) => (
-                  <span
-                    key={kw}
-                    className="px-3 py-1 bg-orange-100 text-orange-700 text-sm rounded-full font-medium"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
+          <Card className="p-6 border border-slate-200 bg-white">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-3">Priority Skills to Add</h2>
+            <div className="flex flex-wrap gap-2">
+              {analysis.missingKeywordsJob.map((kw: string) => (
+                <span key={kw} className="px-3 py-1 bg-red-50 text-red-700 text-[10px] font-bold rounded-full border border-red-100 uppercase tracking-tight">
+                  {kw}
+                </span>
+              ))}
             </div>
           </Card>
         </div>
 
-        {/* Resume Structure */}
-        <Card className="p-8 border border-slate-200 mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">Resume Structure Validation</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(analysis.structureValidation)
-              .filter(([key]) => key !== "missingSection")
-              .map(([key, value]) => (
-                <div key={key} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  {value ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0" />
-                  )}
-                  <span className="text-slate-900 font-medium capitalize">
-                    {key.replace(/([A-Z])/g, " $1").trim()}
-                  </span>
+        {/* ─── PHASE 3: STRUCTURE & SUGGESTIONS ─── */}
+        <div className="grid lg:grid-cols-3 gap-8 mb-12">
+           {/* Structure Validation */}
+           <Card className="lg:col-span-1 p-6 border border-slate-200 bg-white">
+            <h3 className="font-bold text-slate-900 mb-6">Resume Health Check</h3>
+            <div className="space-y-3">
+              {Object.entries(analysis.structureValidation)
+                .filter(([key]) => key !== "missingSection")
+                .map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-sm font-medium text-slate-700 capitalize">
+                      {key.replace(/([A-Z])/g, " $1").trim()}
+                    </span>
+                    {value ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-orange-600" />
+                    )}
+                  </div>
+                ))}
+            </div>
+          </Card>
+
+          {/* Recommendations Summary */}
+          <Card className="lg:col-span-2 p-6 border border-slate-200 bg-white">
+            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              Strategic Recommendations
+            </h3>
+            <div className="space-y-4">
+              {analysis.recommendations.map((rec: any, i: number) => (
+                <div key={i} className="flex gap-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                  <div className={`shrink-0 w-2 h-2 mt-2 rounded-full ${
+                    rec.priority === 'high' ? 'bg-red-500' : 'bg-blue-400'
+                  }`} />
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">{rec.title}</h4>
+                    <p className="text-xs text-slate-600 mt-1">{rec.description}</p>
+                  </div>
                 </div>
               ))}
-          </div>
-        </Card>
+            </div>
+          </Card>
+        </div>
 
-        {/* Recommendations */}
-        <Card className="p-8 border border-slate-200">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-            <TrendingUp className="w-6 h-6" />
-            Improvement Recommendations
-          </h2>
-          <div className="space-y-4">
-            {analysis.recommendations.map((rec: any, i: number) => (
-              <div key={i} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex flex-col sm:flex-row items-start gap-3">
-                  <div className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${
-                    rec.category === "keyword_optimization" ? "bg-blue-600" :
-                    rec.category === "formatting" ? "bg-purple-600" :
-                    "bg-green-600"
-                  }`}>
-                    {rec.category.replace(/_/g, " ")}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900">{rec.title}</h3>
-                    <p className="text-slate-600 mt-1">{rec.description}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <div className="grid md:grid-cols-2 gap-8 mt-12">
-          <ExportOptions
-            resumeId={parseInt(resumeId)}
-            analysisId={analysis?.id}
-            fileName={getResumeQuery.data?.fileName || "resume.pdf"}
-          />
+        {/* ─── PHASE 4: BENCHMARKING ─── */}
+        <div className="mb-12">
           <BenchmarkDashboard
             userScore={analysis.jobScore}
             roleKey={analysis.jobRole || "data-analyst-entry"}
           />
         </div>
 
-        <Card className="mt-12 p-8 border border-slate-200 bg-slate-50">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">More optimization tools</h2>
-              <p className="text-slate-600">
-                Open templates, cover letters, benchmarking, and the full tools hub from here.
-              </p>
+        {/* ─── PHASE 5: INTERACTIVE COACHING (THE CLOSER) ─── */}
+        <div className="grid lg:grid-cols-2 gap-8 mb-12">
+            <div className="space-y-6">
+                <RewriteSuggestions
+                    analysisId={analysis.id}
+                    resumeText={resumeText}
+                    targetRole="job"
+                    roleLabel="Target Role"
+                />
+                <SkillGapAnalysis
+                    resumeText={resumeText}
+                    targetRole="job"
+                    roleLabel="Target Role"
+                />
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={() => setLocation("/tools")}>Open Tools Hub</Button>
-              <Button variant="outline" onClick={() => setLocation("/templates")}>Templates</Button>
-              <Button variant="outline" onClick={() => setLocation("/cover-letter")}>Cover Letter</Button>
-            </div>
-          </div>
-        </Card>
 
-        {/* LLM Suggestions */}
-        <div className="mt-12 space-y-6">
-          <RewriteSuggestions
-            analysisId={analysis.id}
-            resumeText={resumeText}
-            targetRole="intern"
-            roleLabel="Data Analyst Intern"
-          />
-          <SkillGapAnalysis
-            resumeText={resumeText}
-            targetRole="intern"
-            roleLabel="Data Analyst Intern"
-          />
-          <RewriteSuggestions
-            analysisId={analysis.id}
-            resumeText={resumeText}
-            targetRole="job"
-            roleLabel="Entry-Level Data Analyst"
-          />
-          <SkillGapAnalysis
-            resumeText={resumeText}
-            targetRole="job"
-            roleLabel="Entry-Level Data Analyst"
-          />
+            <Card className="p-8 border-2 border-blue-500 bg-white shadow-2xl overflow-hidden relative">
+              {/* Decorative accent */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-16 -mt-16 z-0" />
+              
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black text-slate-950 mb-2 flex items-center gap-2">
+                  <SparklesIcon className="w-6 h-6 text-blue-600" />
+                  AI Career Coach
+                </h2>
+                <p className="text-slate-600 text-sm mb-6">
+                  Personalized advice based on your resume and market trends. Ask anything.
+                </p>
+                <AIChatBox
+                   messages={chatMessages}
+                   onSendMessage={handleSendMessage}
+                   isLoading={chatMutation.isPending}
+                   height="450px"
+                   className="border-blue-100"
+                   emptyStateMessage="Ready to optimize? Ask me how to improve your score!"
+                   suggestedPrompts={[
+                     "How can I emphasize 'Stakeholder Management'?",
+                     "Give me 3 projects for a Data Analyst portfolio.",
+                     "Rewrite my skills section for maximum impact.",
+                   ]}
+                />
+              </div>
+            </Card>
         </div>
 
-        {/* CTA */}
-        <div className="mt-12 text-center">
-          <Button
-            size="lg"
-            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => setLocation("/upload")}
-          >
-            Analyze Another Resume
-          </Button>
+        <div className="mb-0">
+          <Card className="p-8 border border-slate-200 bg-slate-900 text-white text-center">
+            <h2 className="text-2xl font-bold mb-4">Ready to try another version?</h2>
+            <p className="text-slate-400 mb-8 max-w-xl mx-auto">
+              Iterative refinement is the key to passing ATS. Upload a revised version and see how your score improves.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+                <Button
+                    size="lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8"
+                    onClick={() => setLocation("/upload")}
+                >
+                    Analyze New Resume
+                </Button>
+                <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-slate-700 hover:bg-slate-800"
+                    onClick={() => setLocation("/dashboard")}
+                >
+                    Go to Dashboard
+                </Button>
+            </div>
+          </Card>
         </div>
       </div>
     </div>

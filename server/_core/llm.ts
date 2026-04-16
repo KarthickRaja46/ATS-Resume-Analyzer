@@ -223,8 +223,8 @@ const resolveModel = () =>
     : (process.env.OPENAI_MODEL || "gpt-4o-mini");
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!ENV.forgeApiKey && !process.env.GOOGLE_GENAI_API_KEY) {
+    throw new Error("Neither OpenAI nor Gemini API keys are configured");
   }
 };
 
@@ -274,8 +274,6 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
-
   const {
     messages,
     tools,
@@ -286,6 +284,10 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     responseFormat,
     response_format,
   } = params;
+
+  if (process.env.USE_GEMINI_FIRST === "true" && process.env.GOOGLE_GENAI_API_KEY) {
+    return await invokeGemini(params);
+  }
 
   const payload: Record<string, unknown> = {
     model: resolveModel(),
@@ -322,21 +324,125 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    assertApiKey();
+    const response = await fetch(resolveApiUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ENV.forgeApiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      // If we hit a quota error and have a Gemini key, try falling back
+      if (
+        (response.status === 429 || response.status === 402) &&
+        process.env.GOOGLE_GENAI_API_KEY &&
+        !isForgeConfigured()
+      ) {
+        console.warn("[LLM] OpenAI quota exceeded, attempting Gemini fallback...");
+        return await invokeGemini(params);
+      }
+      throw new Error(
+        `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+      );
+    }
+
+    return (await response.json()) as InvokeResult;
+  } catch (error) {
+    if (
+      process.env.GOOGLE_GENAI_API_KEY &&
+      !isForgeConfigured() &&
+      !(error instanceof Error && error.message.includes("Gemini"))
+    ) {
+      console.warn("[LLM] primary LLM failed, attempting Gemini fallback...");
+      return await invokeGemini(params);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fallback to Google Gemini API when OpenAI fails
+ */
+async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
+  if (!apiKey) throw new Error("GOOGLE_GENAI_API_KEY is not configured");
+
+  // Transform OpenAI-style messages to Gemini-style contents
+  const contents = params.messages
+    .filter(m => m.role !== "system")
+    .map(m => {
+      return {
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
+      };
+    });
+
+  const systemInstruction = params.messages.find(m => m.role === "system")?.content;
+  const models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+  let lastError = null;
+
+  for (const modelName of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          system_instruction: systemInstruction
+            ? { parts: [{ text: typeof systemInstruction === "string" ? systemInstruction : JSON.stringify(systemInstruction) }] }
+            : undefined,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        return {
+          id: `gemini-${Date.now()}`,
+          created: Math.floor(Date.now() / 1000),
+          model: modelName,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content: text,
+              },
+              finish_reason: "stop",
+            },
+          ],
+          usage: {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+          },
+        };
+      }
+
+      const errorText = await response.text();
+      if (response.status === 404) {
+        console.warn(`[Gemini] ${modelName} not found, trying next model...`);
+        continue;
+      }
+      throw new Error(`Gemini fallback failed (${modelName}): ${response.status} – ${errorText}`);
+    } catch (error) {
+      lastError = error;
+      if (error instanceof Error && error.message.includes("404")) continue;
+      throw error;
+    }
   }
 
-  return (await response.json()) as InvokeResult;
+  throw lastError || new Error("All Gemini models failed");
 }
